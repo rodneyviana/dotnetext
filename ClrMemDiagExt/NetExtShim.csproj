@@ -363,8 +363,8 @@
   <PropertyGroup>
     <PostBuildEvent>cd $(TargetDir)
 @REM Change this value to point to your .NET 4.x SDk
-@SET "WindowsNETSdkDir_x86=C:\Program Files (x86)\Microsoft SDKs\Windows\v8.0A\bin\NETFX 4.0 Tools"
-@SET "WindowsNETSdkDir_x64=C:\Program Files (x86)\Microsoft SDKs\Windows\v8.0A\bin\NETFX 4.0 Tools\x64"
+@SET "WindowsNETSdkDir_x86=C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools"
+@SET "WindowsNETSdkDir_x64=C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8 Tools\x64"
 
 @ECHO "%25WindowsNETSdkDir_$(PlatformName)%25\tlbexp.exe" $(TargetPath) 
 "%25WindowsNETSdkDir_$(PlatformName)%25\tlbexp.exe" $(TargetPath)

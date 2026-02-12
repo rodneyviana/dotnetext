@@ -25,12 +25,19 @@ Revision History:
 
 --*/
 
+//@[contract("wdbgexts"), comment("MVI_tracked - https://osgwiki.com/wiki/Microsoft_Virus_Initiative")];
+
 #ifndef _WDBGEXTS_
 #define _WDBGEXTS_
 
 #if _MSC_VER > 1000
 #pragma once
 #endif
+#include <winapifamily.h>
+
+#pragma region Desktop Family
+#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,9 +47,12 @@ extern "C" {
 #pragma warning(push)
 #endif
 #pragma warning(disable:4115 4201 4204 4214 4221)
+#pragma warning(disable:4668) // #if not_defined treated as #if 0
+#pragma warning(disable:4820) // padding added
 
 // Maximum value of MAXIMUM_PROCESSORS for all platforms.
-#define CROSS_PLATFORM_MAXIMUM_PROCESSORS 256
+// NB: Keep in sync with extsfns.w/h (the !analyze public header)
+#define CROSS_PLATFORM_MAXIMUM_PROCESSORS 2048
 
 #if !defined(WDBGAPI)
 #define WDBGAPI __stdcall
@@ -59,11 +69,6 @@ typedef CONST void *LPCVOID;
 #ifndef _ULONGLONG_
 typedef unsigned __int64 ULONGLONG;
 typedef ULONGLONG *PULONGLONG;
-#endif
-
-#ifndef __specstrings
-// Should include SpecStrings.h to get proper definitions.
-#define __field_ecount_opt(x)
 #endif
 
 #define WDBGEXTS_MAXSIZE_T ((SIZE_T)~((SIZE_T)0))
@@ -852,7 +857,7 @@ typedef struct _WDBGEXTS_QUERY_INTERFACE {
 #define WDBGEXTS_ADDRESS_SEG16     0x00000001
 #define WDBGEXTS_ADDRESS_SEG32     0x00000002
 #define WDBGEXTS_ADDRESS_RESERVED0 0x80000000
-    
+
 typedef struct _WDBGEXTS_DISASSEMBLE_BUFFER {
     IN ULONG64 InOffset;
     OUT ULONG64 OutOffset;
@@ -874,7 +879,7 @@ typedef struct _WDBGEXTS_MODULE_IN_RANGE {
     OUT ULONG64 FoundModBase;
     OUT ULONG FoundModSize;
 } WDBGEXTS_MODULE_IN_RANGE, *PWDBGEXTS_MODULE_IN_RANGE;
-    
+
 //
 // If DBGKD_VERS_FLAG_DATA is set in Flags, info should be retrieved from
 // the KDDEBUGGER_DATA block rather than from the DBGKD_GET_VERSION
@@ -882,12 +887,13 @@ typedef struct _WDBGEXTS_MODULE_IN_RANGE {
 // reduce compatibility problems.
 //
 
-#define DBGKD_VERS_FLAG_MP         0x0001   // kernel is MP built
-#define DBGKD_VERS_FLAG_DATA       0x0002   // DebuggerDataList is valid
-#define DBGKD_VERS_FLAG_PTR64      0x0004   // native pointers are 64 bits
-#define DBGKD_VERS_FLAG_NOMM       0x0008   // No MM - don't decode PTEs
-#define DBGKD_VERS_FLAG_HSS        0x0010   // hardware stepping support
-#define DBGKD_VERS_FLAG_PARTITIONS 0x0020   // multiple OS partitions exist
+#define DBGKD_VERS_FLAG_MP          0x0001   // kernel is MP built
+#define DBGKD_VERS_FLAG_DATA        0x0002   // DebuggerDataList is valid
+#define DBGKD_VERS_FLAG_PTR64       0x0004   // native pointers are 64 bits
+#define DBGKD_VERS_FLAG_NOMM        0x0008   // No MM - don't decode PTEs
+#define DBGKD_VERS_FLAG_HSS         0x0010   // hardware stepping support
+#define DBGKD_VERS_FLAG_PARTITIONS  0x0020   // multiple OS partitions exist
+#define DBGKD_VERS_FLAG_HAL_IN_NTOS 0x0040   // HAL is linked into NTOS kernel
 
 #define KDBG_TAG    'GBDK'
 
@@ -1254,6 +1260,8 @@ typedef struct _KDDEBUGGER_DATA64 {
     // pad to a quad boundary
     //
     USHORT  PaeEnabled:1;
+    USHORT  KiBugCheckRecoveryActive:1; // Windows 10 Manganese Addition
+    USHORT  PagingLevels:4;
 
     //
     // Address of the kernel callout routine.
@@ -1403,6 +1411,11 @@ typedef struct _KDDEBUGGER_DATA64 {
 
     USHORT    SizeEThread;
 
+    UCHAR     L1tfHighPhysicalBitIndex;  // Windows 10 19H1 Addition
+    UCHAR     L1tfSwizzleBitIndex;       // Windows 10 19H1 Addition
+
+    ULONG     Padding0;
+
     ULONG64   KdPrintCircularBufferPtr;
     ULONG64   KdPrintBufferSize;
 
@@ -1451,6 +1464,50 @@ typedef struct _KDDEBUGGER_DATA64 {
 
     USHORT    OffsetPrcbMaxBreakpoints;
     USHORT    OffsetPrcbMaxWatchpoints;
+
+    ULONG     OffsetKThreadStackLimit;
+    ULONG     OffsetKThreadStackBase;
+    ULONG     OffsetKThreadQueueListEntry;
+    ULONG     OffsetEThreadIrpList;
+
+    USHORT    OffsetPrcbIdleThread;
+    USHORT    OffsetPrcbNormalDpcState;
+    USHORT    OffsetPrcbDpcStack;
+    USHORT    OffsetPrcbIsrStack;
+
+    USHORT    SizeKDPC_STACK_FRAME;
+
+    // Windows 8.1 Addition
+
+    USHORT    OffsetKPriQueueThreadListHead;
+    USHORT    OffsetKThreadWaitReason;
+
+    // Windows 10 RS1 Addition
+
+    USHORT    Padding1;
+    ULONG64   PteBase;
+
+    // Windows 10 RS5 Addition
+
+    ULONG64   RetpolineStubFunctionTable;
+    ULONG     RetpolineStubFunctionTableSize;
+    ULONG     RetpolineStubOffset;
+    ULONG     RetpolineStubSize;
+
+    // Windows 10 Iron Addition
+
+    USHORT OffsetEProcessMmHotPatchContext;
+
+    // Windows 11 Cobalt Addition
+
+    ULONG   OffsetKThreadShadowStackLimit;
+    ULONG   OffsetKThreadShadowStackBase;
+    ULONG64 ShadowStackEnabled;
+
+    // Windows 11 Nickel Addition
+
+    ULONG64 PointerAuthMask;
+    USHORT  OffsetPrcbExceptionStack;
 
 } KDDEBUGGER_DATA64, *PKDDEBUGGER_DATA64;
 
@@ -1592,6 +1649,7 @@ typedef struct _KDDEBUGGER_DATA64 {
 #define DBG_DUMP_FIELD_WCHAR_STRING       0x00020000
 #define DBG_DUMP_FIELD_MULTI_STRING       0x00040000
 #define DBG_DUMP_FIELD_GUID_STRING        0x00080000
+#define DBG_DUMP_FIELD_UTF32_STRING       0x00100000
 
 
 //
@@ -1659,7 +1717,7 @@ typedef struct _SYM_DUMP_PARAM {
    PSYM_DUMP_FIELD_CALLBACK CallbackRoutine;
                                       // Routine called back
    ULONG               nFields;       // # elements in Fields
-   __field_ecount_opt(nFields) PFIELD_INFO         Fields;        // Used to return information about field
+   _Field_size_opt_(nFields) PFIELD_INFO         Fields;        // Used to return information about field
    ULONG64             ModBase;       // OUT Module base address containing type
    ULONG               TypeId;        // OUT Type index of the symbol
    ULONG               TypeSize;      // OUT Size of type
@@ -1670,6 +1728,27 @@ typedef struct _SYM_DUMP_PARAM {
    ULONG               fConstant:1;   // OUT set to 1 for constant types (unused)
    ULONG               Reserved:27;   // unused
 } SYM_DUMP_PARAM, *PSYM_DUMP_PARAM;
+
+typedef union _POOL_HEADER_SIZE_64 {
+
+    struct {
+        UCHAR UnsafePrevSize;
+        UCHAR Unused1;
+        UCHAR UnsafeSize;
+        UCHAR UnsafePoolType;
+    };
+
+    ULONG Ulong1;
+
+} POOL_HEADER_SIZE_64, *PPOOL_HEADER_SIZE_64;
+
+typedef enum _POOL_HEADER_FIELD_NAME {
+    DbgkdPreviousSize,
+    DbgkdPoolIndex,
+    DbgkdBlockSize,
+    DbgkdPoolType,
+    DbgkdUlong1
+} POOL_HEADER_FIELD_NAME;
 
 #ifdef __cplusplus
 #define CPPMOD extern "C"
@@ -1763,9 +1842,9 @@ extern WINDBG_EXTENSION_APIS   ExtensionApis;
 __inline VOID
 ReadPhysical(
     ULONG64             address,
-    PVOID               buf,
+    _Out_writes_bytes_to_(size, *sizer) PVOID buf,
     ULONG               size,
-    PULONG              sizer
+    _Out_ PULONG        sizer
     )
 {
     PPHYSICAL phy = NULL;
@@ -1778,7 +1857,7 @@ ReadPhysical(
         phy->Address = address;
         phy->BufLen = size;
         Ioctl( IG_READ_PHYSICAL, (PVOID)phy, sizeof(*phy) + size );
-        *sizer = phy->BufLen;
+        *sizer = (phy->BufLen > size) ? size : phy->BufLen;
         CopyMemory( buf, phy->Buf, *sizer );
         LocalFree( phy );
     }
@@ -1787,9 +1866,9 @@ ReadPhysical(
 __inline VOID
 WritePhysical(
     ULONG64             address,
-    PVOID               buf,
+    _In_reads_bytes_(size) PVOID buf,
     ULONG               size,
-    PULONG              sizew
+    _Out_ PULONG        sizew
     )
 {
     PPHYSICAL phy = NULL;
@@ -1811,10 +1890,10 @@ WritePhysical(
 __inline VOID
 ReadPhysicalWithFlags(
     ULONG64             address,
-    PVOID               buf,
+    _Out_writes_bytes_to_(size, *sizer) PVOID buf,
     ULONG               size,
     ULONG               flags,
-    PULONG              sizer
+    _Out_ PULONG        sizer
     )
 {
     PPHYSICAL_WITH_FLAGS phy = NULL;
@@ -1828,7 +1907,7 @@ ReadPhysicalWithFlags(
         phy->BufLen = size;
         phy->Flags = flags;
         Ioctl( IG_READ_PHYSICAL_WITH_FLAGS, (PVOID)phy, sizeof(*phy) + size );
-        *sizer = phy->BufLen;
+        *sizer = (phy->BufLen > size) ? size : phy->BufLen;
         CopyMemory( buf, phy->Buf, *sizer );
         LocalFree( phy );
     }
@@ -1837,10 +1916,10 @@ ReadPhysicalWithFlags(
 __inline VOID
 WritePhysicalWithFlags(
     ULONG64             address,
-    PVOID               buf,
+    _In_reads_bytes_(size) PVOID buf,
     ULONG               size,
     ULONG               flags,
-    PULONG              sizew
+    _Out_ PULONG        sizew
     )
 {
     PPHYSICAL_WITH_FLAGS phy = NULL;
@@ -1863,7 +1942,7 @@ WritePhysicalWithFlags(
 __inline VOID
 ReadMsr(
     ULONG       MsrReg,
-    ULONGLONG   *MsrValue
+    _Out_ ULONGLONG *MsrValue
     )
 {
     READ_WRITE_MSR msr;
@@ -1916,7 +1995,7 @@ __inline VOID
 ReadControlSpace(
     USHORT  processor,
     ULONG   address,
-    PVOID   buf,
+    _Out_writes_bytes_to_(size, 0) PVOID   buf,
     ULONG   size
     )
 {
@@ -1939,7 +2018,7 @@ __inline VOID
 ReadControlSpace32(
     USHORT  processor,
     ULONG   address,
-    PVOID   buf,
+    _Out_writes_bytes_to_(size, 0) PVOID   buf,
     ULONG   size
     )
 {
@@ -1965,7 +2044,7 @@ __inline VOID
 ReadControlSpace64(
     USHORT  processor,
     ULONG64 address,
-    PVOID   buf,
+    _Out_writes_bytes_to_(size, 0) PVOID   buf,
     ULONG   size
     )
 {
@@ -1991,7 +2070,7 @@ __inline VOID
 WriteControlSpace(
     USHORT  processor,
     ULONG   address,
-    PVOID   buf,
+    _In_reads_bytes_(size) PVOID   buf,
     ULONG   size
     )
 {
@@ -2015,53 +2094,53 @@ WriteControlSpace(
 __inline VOID
 ReadIoSpace(
     ULONG   address,
-    PULONG  data,
-    PULONG  size
+    _Out_writes_bytes_(*size) PULONG  data,
+    _Inout_ PULONG  size
     )
 {
     IOSPACE is;
     is.Address = address;
     is.Length = *size;
     Ioctl( IG_READ_IO_SPACE, (PVOID)&is, sizeof(is) );
-    memcpy(data, &is.Data, is.Length);
-    *size = is.Length;
+    *size = (is.Length > *size) ? *size : is.Length;
+    memcpy(data, &is.Data, *size);
 }
 
 __inline VOID
 ReadIoSpace32(
     ULONG   address,
-    PULONG  data,
-    PULONG  size
+    _Out_writes_bytes_(*size) PULONG  data,
+    _Inout_ PULONG  size
     )
 {
     IOSPACE32 is;
     is.Address = address;
     is.Length = *size;
     Ioctl( IG_READ_IO_SPACE, (PVOID)&is, sizeof(is) );
-    memcpy(data, &is.Data, is.Length);
-    *size = is.Length;
+    *size = (is.Length > *size) ? *size : is.Length;
+    memcpy(data, &is.Data, *size);
 }
 
 __inline VOID
 ReadIoSpace64(
     ULONG64 address,
-    PULONG  data,
-    PULONG  size
+    _Out_writes_bytes_(*size) PULONG  data,
+    _Inout_ PULONG  size
     )
 {
     IOSPACE64 is;
     is.Address = address;
     is.Length = *size;
     Ioctl( IG_READ_IO_SPACE, (PVOID)&is, sizeof(is) );
-    memcpy(data, &is.Data, is.Length);
-    *size = is.Length;
+    *size = (is.Length > *size) ? *size : is.Length;
+    memcpy(data, &is.Data, *size);
 }
 
 __inline VOID
 WriteIoSpace(
     ULONG   address,
     ULONG   data,
-    PULONG  size
+    _Inout_ PULONG  size
     )
 {
     IOSPACE is;
@@ -2076,7 +2155,7 @@ __inline VOID
 WriteIoSpace32(
     ULONG   address,
     ULONG   data,
-    PULONG  size
+    _Inout_ PULONG  size
     )
 {
     IOSPACE32 is;
@@ -2091,7 +2170,7 @@ __inline VOID
 WriteIoSpace64(
     ULONG64 address,
     ULONG   data,
-    PULONG  size
+    _Inout_ PULONG  size
     )
 {
     IOSPACE64 is;
@@ -2105,8 +2184,8 @@ WriteIoSpace64(
 __inline VOID
 ReadIoSpaceEx(
     ULONG   address,
-    PULONG  data,
-    PULONG  size,
+    _Out_ PULONG  data,
+    _Inout_ PULONG  size,
     ULONG   interfacetype,
     ULONG   busnumber,
     ULONG   addressspace
@@ -2127,8 +2206,8 @@ ReadIoSpaceEx(
 __inline VOID
 ReadIoSpaceEx32(
     ULONG   address,
-    PULONG  data,
-    PULONG  size,
+    _Out_ PULONG  data,
+    _Inout_ PULONG  size,
     ULONG   interfacetype,
     ULONG   busnumber,
     ULONG   addressspace
@@ -2149,8 +2228,8 @@ ReadIoSpaceEx32(
 __inline VOID
 ReadIoSpaceEx64(
     ULONG64 address,
-    PULONG  data,
-    PULONG  size,
+    _Out_ PULONG  data,
+    _Inout_ PULONG  size,
     ULONG   interfacetype,
     ULONG   busnumber,
     ULONG   addressspace
@@ -2172,7 +2251,7 @@ __inline VOID
 WriteIoSpaceEx(
     ULONG   address,
     ULONG   data,
-    PULONG  size,
+    _Inout_ PULONG  size,
     ULONG   interfacetype,
     ULONG   busnumber,
     ULONG   addressspace
@@ -2193,7 +2272,7 @@ __inline VOID
 WriteIoSpaceEx32(
     ULONG   address,
     ULONG   data,
-    PULONG  size,
+    _Inout_ PULONG  size,
     ULONG   interfacetype,
     ULONG   busnumber,
     ULONG   addressspace
@@ -2214,7 +2293,7 @@ __inline VOID
 WriteIoSpaceEx64(
     ULONG64 address,
     ULONG   data,
-    PULONG  size,
+    _Inout_ PULONG  size,
     ULONG   interfacetype,
     ULONG   busnumber,
     ULONG   addressspace
@@ -2233,7 +2312,7 @@ WriteIoSpaceEx64(
 
 __inline VOID
 ReloadSymbols(
-    IN PSTR Arg OPTIONAL
+    _In_ PSTR Arg OPTIONAL
     )
 /*++
 
@@ -2263,9 +2342,9 @@ Return Value:
 
 __inline VOID
 GetSetSympath(
-    IN PSTR Arg,
-    OUT PSTR Result OPTIONAL,
-    IN int Length
+    _In_ PSTR Arg,
+    _Out_writes_to_opt_(Length, 0) PSTR Result OPTIONAL,
+    int Length
     )
 /*++
 
@@ -2295,6 +2374,10 @@ Return Value:
     gss.Result = Result;
     gss.Length = Length;
     Ioctl(IG_GET_SET_SYMPATH, (PVOID)&gss, sizeof(gss));
+    if (Result)
+    {
+        Result[Length - 1] = 0;
+    }
 }
 
 #if   defined(KDEXT_64BIT)
@@ -2428,11 +2511,11 @@ GetTypeSize (
 __inline
 ULONG
 GetFieldData (
-    IN  ULONG64 TypeAddress,
-    IN  LPCSTR  Type,
-    IN  LPCSTR  Field,
-    IN  ULONG   OutSize,
-    OUT PVOID   pOutValue
+    _In_ ULONG64 TypeAddress,
+    _In_ LPCSTR  Type,
+    _In_ LPCSTR  Field,
+    _In_ ULONG   OutSize,
+    _Out_writes_bytes_(OutSize) PVOID pOutValue
    )
 {
    FIELD_INFO flds = {(PUCHAR)Field, NULL, 0, DBG_DUMP_FIELD_FULL_NAME | DBG_DUMP_FIELD_COPY_FIELD_DATA | DBG_DUMP_FIELD_RETURN_ADDRESS, 0, pOutValue};
@@ -2481,7 +2564,7 @@ GetShortField (
     static ULONG   ReadPhysical;
     FIELD_INFO flds = {(PUCHAR) Name, NULL, 0, DBG_DUMP_FIELD_FULL_NAME, 0, NULL};
     SYM_DUMP_PARAM Sym = {
-       sizeof (SYM_DUMP_PARAM), SavedName, DBG_DUMP_NO_PRINT | ((StoreAddress & 2) ? DBG_DUMP_READ_PHYSICAL : 0),
+       (ULONG)sizeof (SYM_DUMP_PARAM), SavedName, DBG_DUMP_NO_PRINT | ((StoreAddress & 2) ? DBG_DUMP_READ_PHYSICAL : (ULONG)0),
        SavedAddress, NULL, NULL, NULL, 1, &flds
     };
 
@@ -2632,6 +2715,135 @@ GetFieldOffset (
    return Err;
 }
 
+//
+// This is used to decode pool header fields.
+//
+
+__inline
+ULONG
+DecodeNtPoolHeaderSizes (
+    IN ULONG64 Address,
+    IN ULONG Sizes,
+    IN ULONG PoolKey
+    )
+{
+    return Sizes ^ (ULONG)Address ^ PoolKey;
+}
+
+__inline
+ULONG
+GetPoolHeaderSizeFieldValue (
+    IN ULONG64 pHeader,
+    IN POOL_HEADER_FIELD_NAME FieldName,
+    OUT PULONG FieldValue
+    )
+{
+    ULONG64 StateLoc;
+    ULONG PoolKey;
+    POOL_HEADER_SIZE_64 PoolSizes = {0};
+    ULONG PlainPoolHeader;
+    ULONG FieldValueTmp = 0;
+    PCSTR FieldNameStr;
+    ULONG Status = ERROR_SUCCESS;
+
+    *FieldValue = 0;
+
+    StateLoc = GetExpression("nt!ExPoolState");
+
+    if (StateLoc == 0) {
+        dprintf("Unable to get global pool state.\n");
+        return ERROR_INVALID_DATA;
+    }
+
+    PlainPoolHeader = GetFieldValue(StateLoc,
+                                    "nt!_EX_POOL_HEAP_MANAGER_STATE",
+                                    "PoolKey",
+                                    PoolKey);
+
+    if (PlainPoolHeader) {
+        switch (FieldName) {
+            case DbgkdBlockSize:
+                FieldNameStr = "BlockSize";
+                break;
+
+            case DbgkdPreviousSize:
+                FieldNameStr = "PreviousSize";
+                break;
+
+            case DbgkdPoolType:
+                FieldNameStr = "PoolType";
+                break;
+
+            case DbgkdUlong1:
+                FieldNameStr = "Ulong1";
+                break;
+
+            case DbgkdPoolIndex:
+                FieldNameStr = "PoolIndex";
+                break;
+
+            default:
+                dprintf("Unknown pool header field.\n");
+                Status = ERROR_INVALID_FIELD;
+                goto Exit;
+                break;
+            }
+
+        Status = GetFieldValue(pHeader,
+                               "nt!_POOL_HEADER",
+                               FieldNameStr,
+                               FieldValueTmp);
+
+        if (Status) {
+            goto Exit;
+        }
+
+        *FieldValue = FieldValueTmp;
+    } else {
+        Status = GetFieldValue(pHeader,
+                               "nt!_POOL_HEADER",
+                               "Sizes",
+                               PoolSizes);
+
+        if (Status) {
+            goto Exit;
+        }
+
+        PoolSizes.Ulong1 = DecodeNtPoolHeaderSizes(pHeader, PoolSizes.Ulong1, PoolKey);
+
+        switch (FieldName) {
+            case DbgkdBlockSize:
+                *FieldValue = PoolSizes.UnsafeSize;
+                break;
+
+            case DbgkdPreviousSize:
+                *FieldValue = PoolSizes.UnsafePrevSize;
+                break;
+
+            case DbgkdPoolType:
+                *FieldValue = PoolSizes.UnsafePoolType;
+                break;
+
+            case DbgkdUlong1:
+                *FieldValue = PoolSizes.Ulong1;
+                break;
+
+            case DbgkdPoolIndex:
+                *FieldValue = PoolSizes.Unused1;
+                break;
+
+            default:
+                dprintf("Unknown pool header field.\n");
+                Status = ERROR_INVALID_FIELD;
+                goto Exit;
+                break;
+        }
+    }
+
+Exit:
+
+    return Status;
+}
 
 #endif // defined(KDEXT_64BIT)
 
@@ -2715,7 +2927,7 @@ SearchMemory(
 __inline ULONG
 GetInputLine(
     PCSTR Prompt,
-    PSTR Buffer,
+    _Out_writes_to_(BufferSize, 0) PSTR Buffer,
     ULONG BufferSize
     )
 {
@@ -2725,10 +2937,12 @@ GetInputLine(
     InLine.BufferSize = BufferSize;
     if (Ioctl(IG_GET_INPUT_LINE, (PVOID)&InLine, sizeof(InLine)))
     {
+        Buffer[BufferSize - 1] = 0;
         return InLine.InputSize;
     }
     else
     {
+        Buffer[BufferSize - 1] = 0;
         return 0;
     }
 }
@@ -2807,5 +3021,9 @@ ExtMatchPatternA(
 #ifdef __cplusplus
 }
 #endif
+
+
+#endif /* WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP) */
+#pragma endregion
 
 #endif // _WDBGEXTS_

@@ -18,6 +18,8 @@
     <None Include="NetExt.def">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="vcpkg.json" />
+    <None Include="vcpkg-configuration.json" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h">

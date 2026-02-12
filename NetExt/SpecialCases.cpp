@@ -246,7 +246,7 @@ std::wstring SpecialCases::IPV4Address(INT64 Address, int Port)
 	WCHAR buffer[16] = { 0 };
 	for (int i = 0; i < 4; i++)
 	{
-		wsprintf(buffer, L"%i", (int)(addr & 0xff));
+		wsprintfW(buffer, L"%i", (int)(addr & 0xff));
 		addr = addr >> 8;
 		ipstring.append(buffer);
 		if (i != 3)
@@ -254,7 +254,7 @@ std::wstring SpecialCases::IPV4Address(INT64 Address, int Port)
 	}
 	if (Port != 0)
 	{
-		wsprintf(buffer, L":%i", Port);
+		wsprintfW(buffer, L":%i", Port);
 
 		ipstring.append(buffer);
 	}
@@ -306,7 +306,7 @@ std::wstring SpecialCases::IPV6Address(WORD* SocketAddress, int Port, int ScopeI
 			addr.sin6_addr.u.Byte[j++] = (BYTE)(SocketAddress[i] & 0xff);
 		}
 
-		int result = WSAAddressToString(
+		int result = WSAAddressToStringW(
 			(LPSOCKADDR)&addr,
 			sizeof(addr),
 			0,
@@ -643,7 +643,7 @@ std::string SpecialCases::GetHexArray(CLRDATA_ADDRESS Obj, bool Padded, int Limi
 					bytes += '?';
 			} else
 			{
-				byte b=ptr.GetUchar();
+				unsigned char b=ptr.GetUchar();
 				if(Padded)
 					sprintf_s(buff, 6, "%02x ", b);
 				else
@@ -750,7 +750,7 @@ std::string SpecialCases::PrettyPrint(CLRDATA_ADDRESS Address, CLRDATA_ADDRESS M
 		SVAL v = GetBoxedValue(Address);
 		if(v.IsValid && v.strValue.size() != 0)
 		{
-			string ret = CW2A(v.strValue.c_str());
+			string ret = localCW2A(v.strValue.c_str());
 			return ret;
 		}
 		obj.Request(Address);
@@ -761,12 +761,12 @@ std::string SpecialCases::PrettyPrint(CLRDATA_ADDRESS Address, CLRDATA_ADDRESS M
 
 	if(obj.IsRuntime())
 	{
-		return CW2A(obj.GetRuntimeTypeName().c_str());
+		return localCW2A(obj.GetRuntimeTypeName().c_str());
 	}
 
 	if(obj.IsString())
 	{
-		string ret = CW2A(obj.String().c_str());
+		string ret = localCW2A(obj.String().c_str());
 		return ret;
 	}
 
@@ -774,7 +774,7 @@ std::string SpecialCases::PrettyPrint(CLRDATA_ADDRESS Address, CLRDATA_ADDRESS M
 	{
 		ExtRemoteData dt(Address + (MethodTable ? 0 : sizeof(void*)) , sizeof(UINT64));
 		UINT64 ticks = dt.GetUlong64();
-		string ret = CW2A(tickstodatetime(ticks).c_str());
+		string ret = localCW2A(tickstodatetime(ticks).c_str());
 		return ret;
 	}
 	if(methName == L"System.TimeSpan")
@@ -793,13 +793,13 @@ std::string SpecialCases::PrettyPrint(CLRDATA_ADDRESS Address, CLRDATA_ADDRESS M
 		fields.push_back("m_String");
 		varMap fieldV;
 		DumpFields(Address,fields,0,&fieldV);
-		string ret = CW2A(fieldV["m_String"].strValue.c_str());
+		string ret = localCW2A(fieldV["m_String"].strValue.c_str());
 		return ret;
 	}
 
 	if(methName == L"System.Net.IPEndPoint" || methName == L"System.Net.IPAddress")
 	{
-		string ret = CW2A(SpecialCases::IPAddress(Address).c_str());
+		string ret = localCW2A(SpecialCases::IPAddress(Address).c_str());
 		return ret;
 	}
 
@@ -1161,7 +1161,7 @@ void DumpNamedKeys(CLRDATA_ADDRESS Address, string Key, namedKey *Keys)
 				innerItems.push_back(NULL); // show NULL if it is null
 			}
 
-			string key = CW2A(fieldV["Key"].strValue.c_str());
+			string key = localCW2A(fieldV["Key"].strValue.c_str());
 			if(Key.size() > 0) key = Key; // override the key for a HttpCollection case
 			for (inner=innerItems.begin(); inner!=innerItems.end(); inner++)
 			{
@@ -1182,7 +1182,7 @@ void DumpNamedKeys(CLRDATA_ADDRESS Address, string Key, namedKey *Keys)
 					innerFields.clear();
 					for (fs=fstore.begin(); fs!=fstore.end(); ++fs)
 					{
-						string s = CW2A(fs->FieldName.c_str());
+						string s = localCW2A(fs->FieldName.c_str());
 						innerFields.push_back(s);
 					}
 					DumpFields(ptr, innerFields, mt, &innerFieldV);
@@ -1499,7 +1499,7 @@ void DumpFields(CLRDATA_ADDRESS Address, std::vector<std::string> Fields, CLRDAT
 				}
 				if(Vars)
 				{
-					string key = CW2A(fields[i].FieldName.c_str());
+					string key = localCW2A(fields[i].FieldName.c_str());
 					(*Vars)[key].fieldName=key;
 					(*Vars)[key].corType = (CorElementType)fields[i].FieldDesc.corElementType;
 					(*Vars)[key].typeName = fields[i].mtName;
@@ -2449,12 +2449,12 @@ SVAL operator-(const SVAL& x)
 
 std::ostream& operator<< (std::ostream &os, SVAL& val)
 {
-	os << CW2A(val.prettyPrint.c_str());
+	os << localCW2A(val.prettyPrint.c_str());
 	if(val.IsInt() || (val.IsReal() && (val.DoubleValue - (INT64)val.DoubleValue ==0)))
 	{
 		swprintf(NameBuffer, MAX_MTNAME, L"%I64x", (INT64)val.DoubleValue);
 
-		os << " 0x" << CW2A(NameBuffer);
+		os << " 0x" << localCW2A(NameBuffer);
 	}
 	return os;
 }
