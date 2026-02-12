@@ -46,9 +46,15 @@ local.properties
 [Dd]ebug/
 [Rr]elease/
 x64/
+x86/
 build/
+
 [Bb]in/
 [Oo]bj/
+Release32/
+Target/
+vcpkg_installed/
+
 
 # MSTest test Results
 [Tt]est[Rr]esult*/
@@ -130,7 +136,8 @@ publish/
 
 # NuGet Packages Directory
 ## TODO: If you have NuGet Package Restore enabled, uncomment the next line
-#packages/
+packages/
+
 
 # Windows Azure Build Output
 csx
@@ -214,3 +221,5 @@ pip-log.txt
 #Mr Developer
 .mr.developer.cfg
 /.vs
+/ClrMemDiagExt/.vs/NetExtShim.csproj.dtbcache.json
+/ProofOfConcept/.vs/ProofOfConcept.csproj.dtbcache.json
